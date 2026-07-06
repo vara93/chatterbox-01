@@ -70,7 +70,7 @@ LOG_DIR="/var/log/chatterbox"
 CPU_THREADS="20"
 
 log() { printf '\n[%s] %s\n' "$(date +'%Y-%m-%d %H:%M:%S')" "$*"; }
-run_as_user() { runuser -u "$RUN_USER" -- env HOME="$INSTALL_DIR" "$@"; }
+run_as_user() { runuser -u "$RUN_USER" -- env HOME="$INSTALL_DIR" PATH="/usr/local/bin:/usr/bin:/bin" "$@"; }
 
 install_system_packages() {
   log "Installing system packages"
@@ -118,9 +118,15 @@ sync_repo() {
 setup_python_and_deps() {
   log "Installing Python 3.10 with uv and project dependencies"
   run_as_user uv python install 3.10
-  if [[ ! -x "$VENV_DIR/bin/python" || "$($VENV_DIR/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)" != "3.10" ]]; then
+  local venv_python_version=""
+  local venv_has_pip=1
+  if [[ -x "$VENV_DIR/bin/python" ]]; then
+    venv_python_version="$($VENV_DIR/bin/python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")' 2>/dev/null || true)"
+    "$VENV_DIR/bin/python" -m pip --version >/dev/null 2>&1 && venv_has_pip=0 || venv_has_pip=1
+  fi
+  if [[ ! -x "$VENV_DIR/bin/python" || "$venv_python_version" != "3.10" || "$venv_has_pip" -ne 0 ]]; then
     rm -rf "$VENV_DIR"
-    run_as_user uv venv --python 3.10 "$VENV_DIR"
+    run_as_user uv venv --seed --python 3.10 "$VENV_DIR"
   fi
   run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade pip setuptools wheel
   if [[ ! -f "$REPO_DIR/requirements.txt" ]]; then
