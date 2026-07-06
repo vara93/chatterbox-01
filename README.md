@@ -46,6 +46,23 @@ sudo journalctl -u chatterbox -n 80 --no-pager
 6. Оставьте `exaggeration=0.5`, `cfg_weight=0.5`, `speed_factor=1.0`.
 7. Нажмите **«Сгенерировать речь»**. После генерации используйте кнопку **«Скачать»** в блоке готового аудио.
 
+
+## Шаблон русского стихотворения для теста
+
+Вставьте этот текст в поле **«Текст для озвучки»** для первого теста русской речи:
+
+```text
+Берёзовый вечер над тихой рекой,
+Ложится туман серебристой рукой.
+И звёзды, как искры, в воде зажжены,
+А ветер приносит дыханье весны.
+
+Скажи это мягко, спокойно, тепло,
+Как будто в душе зазвучало светло.
+```
+
+Для voice cloning загрузите reference audio с вашим голосом и выберите **«Клонирование голоса (reference audio)»**.
+
 ## Что устанавливается
 
 Скрипт выполняет установку systemd + venv, без Docker:
@@ -318,6 +335,16 @@ sudo rm -f /usr/local/bin/uv /usr/local/bin/uvx
 Chatterbox-TTS-Server указывает Python 3.10 как обязательный из-за совместимости бинарных wheels для PyTorch/ONNX и связанных библиотек. Скрипт ставит изолированный Python 3.10 через `uv` и не меняет системный Python Ubuntu.
 
 
+
+### `TypeError: 'NoneType' object is not callable` на `PerthImplicitWatermarker()`
+
+Это проблема optional audio watermarking-библиотеки `perth`: на некоторых Linux CPU окружениях `perth.PerthImplicitWatermarker` импортируется как `None`. Скрипт исправляет это через `sitecustomize.py`: если implicit watermarker недоступен, используется `perth.DummyWatermarker`, чтобы модель могла загрузиться и генерировать речь. После обновления выполните:
+
+```bash
+sudo bash install_chatterbox_cpu.sh --update
+sudo systemctl restart chatterbox
+```
+
 ### `RuntimeError: Attempting to deserialize object on a CUDA device`
 
 На CPU-only машине multilingual checkpoint может содержать CUDA storage tags. Скрипт ставит `sitecustomize.py` в venv, который на CPU автоматически добавляет `map_location=torch.device("cpu")` для `torch.load`, и systemd дополнительно получает `CUDA_VISIBLE_DEVICES=-1`. После обновления выполните:
@@ -332,7 +359,7 @@ sudo systemctl restart chatterbox
 Это означает, что в venv попала слишком новая major-версия `protobuf`, несовместимая с `onnx==1.16.0`. Актуальный скрипт фиксирует это автоматически и устанавливает `protobuf==3.20.3`. Для уже установленного окружения можно выполнить:
 
 ```bash
-sudo -u chatterbox /opt/chatterbox/venv/bin/python -m pip install --upgrade 'protobuf==3.20.3'
+sudo -u chatterbox /opt/chatterbox/venv/bin/python -m pip install --upgrade --no-warn-conflicts 'protobuf==3.20.3' pre-commit
 sudo systemctl restart chatterbox
 ```
 

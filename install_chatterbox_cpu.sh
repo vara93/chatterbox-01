@@ -146,7 +146,7 @@ setup_python_and_deps() {
   fi
   run_as_user "$VENV_DIR/bin/python" -m pip install -r "$REPO_DIR/requirements.txt"
   run_as_user "$VENV_DIR/bin/python" -m pip install --no-deps 'git+https://github.com/devnen/chatterbox-v2.git@master' s3tokenizer==0.3.0 onnx==1.16.0
-  run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade 'protobuf==3.20.3'
+  run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade --no-warn-conflicts 'protobuf==3.20.3' pre-commit
   run_as_user "$VENV_DIR/bin/python" - <<'PY_CHECK'
 import google.protobuf.internal.builder  # noqa: F401
 import onnx  # noqa: F401
@@ -157,20 +157,47 @@ PY_CHECK
 
 install_cpu_torch_load_patch() {
   log "Installing CPU torch.load compatibility patch"
-  run_as_user "$VENV_DIR/bin/python" - <<'PY_CPU_PATCH'
+  local sitecustomize_path
+  sitecustomize_path="$(run_as_user "$VENV_DIR/bin/python" - <<'PY_SITE_PATH'
 from pathlib import Path
 import site
+print(Path(site.getsitepackages()[0]) / 'sitecustomize.py')
+PY_SITE_PATH
+)"
+  run_as_user tee "$sitecustomize_path" >/dev/null <<'PY_SITE'
+"""CPU-only compatibility patch for Chatterbox checkpoints saved with CUDA storage tags."""
+import functools
 
-content = '"""CPU-only compatibility patch for Chatterbox checkpoints saved with CUDA storage tags."""\nimport functools\n\ntry:\n    import torch\nexcept Exception:  # keep interpreter startup safe\n    torch = None\n\nif torch is not None and not torch.cuda.is_available() and not getattr(torch.load, "_chatterbox_cpu_patch", False):\n    _original_torch_load = torch.load\n\n    @functools.wraps(_original_torch_load)\n    def _torch_load_cpu_default(*args, **kwargs):\n        kwargs.setdefault("map_location", torch.device("cpu"))\n        return _original_torch_load(*args, **kwargs)\n\n    _torch_load_cpu_default._chatterbox_cpu_patch = True\n    torch.load = _torch_load_cpu_default\n'
+try:
+    import torch
+except Exception:  # keep interpreter startup safe
+    torch = None
 
-purelib = Path(site.getsitepackages()[0])
-path = purelib / 'sitecustomize.py'
-path.write_text(content, encoding='utf-8')
-PY_CPU_PATCH
+if torch is not None and not torch.cuda.is_available() and not getattr(torch.load, "_chatterbox_cpu_patch", False):
+    _original_torch_load = torch.load
+
+    @functools.wraps(_original_torch_load)
+    def _torch_load_cpu_default(*args, **kwargs):
+        kwargs.setdefault("map_location", torch.device("cpu"))
+        return _original_torch_load(*args, **kwargs)
+
+    _torch_load_cpu_default._chatterbox_cpu_patch = True
+    torch.load = _torch_load_cpu_default
+
+try:
+    import perth
+except Exception:
+    perth = None
+
+if perth is not None and getattr(perth, "PerthImplicitWatermarker", None) is None and hasattr(perth, "DummyWatermarker"):
+    perth.PerthImplicitWatermarker = perth.DummyWatermarker
+PY_SITE
   run_as_user "$VENV_DIR/bin/python" - <<'PY_CPU_CHECK'
 import torch
 assert not torch.cuda.is_available(), "CUDA unexpectedly visible on CPU installer"
 assert getattr(torch.load, "_chatterbox_cpu_patch", False), "CPU torch.load patch was not activated"
+import perth
+assert perth.PerthImplicitWatermarker is not None, "Perth watermarker fallback was not activated"
 PY_CPU_CHECK
 }
 
@@ -248,7 +275,13 @@ script = """
     ['Chatterbox Original (English)', 'Chatterbox Original (английский)'],
     ['Chatterbox Turbo (Fast, English)', 'Chatterbox Turbo (быстрый, английский)']
   ];
-  const ruText = 'Введите русский текст здесь. Для клонирования голоса выберите «Клонирование голоса (reference audio)» и загрузите WAV/MP3 5–15 секунд чистого русского голоса.';
+  const ruText = `Берёзовый вечер над тихой рекой,
+Ложится туман серебристой рукой.
+И звёзды, как искры, в воде зажжены,
+А ветер приносит дыханье весны.
+
+Скажи это мягко, спокойно, тепло,
+Как будто в душе зазвучало светло.`;
   function translateString(value) {
     if (!value) return value; const trimmed = value.trim();
     if (exact.has(trimmed)) return value.replace(trimmed, exact.get(trimmed));
