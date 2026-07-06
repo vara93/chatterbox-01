@@ -282,17 +282,26 @@ script = """
 
 Скажи это мягко, спокойно, тепло,
 Как будто в душе зазвучало светло.`;
-  const ruTemplates = {
-    'Стих': ruText,
-    'Сказка': `В маленькой деревне у самой кромки леса жил старый мастер. Каждое утро он открывал окно, слушал птиц и говорил: «Сегодня обязательно случится что-то доброе». И однажды на пороге его дома появился светящийся ключ.`,
-    'Диктор': `Добрый день. Вы слушаете тест русской озвучки Chatterbox TTS. Голос должен звучать ровно, понятно и естественно, без лишней спешки и резких перепадов громкости.`,
-    'Диалог': `— Ты уже слышал этот голос?
-— Да, звучит похоже и довольно естественно.
-— Тогда попробуем ещё одну фразу, чуть медленнее и выразительнее.
-— Отлично, так будет понятнее для слушателя.`,
-    'Аудиокнига': `Город постепенно засыпал. В окнах гасли огни, по мокрой мостовой тихо шуршали редкие машины, а где-то далеко часы на башне отбивали полночь. Именно в этот момент началась история, которую никто не смог забыть.`,
-    'Инструкция': `Для лучшего результата используйте короткий reference audio: пять–пятнадцать секунд чистого русского голоса, без музыки, шума и реверберации. Если речь звучит нестабильно, уменьшите cfg_weight примерно до нуля целых трёх десятых.`
+  const ruPresetCatalog = {
+    '⚡ Turbo: Tech Support Meltdown': {title:'⚡ Турбо: Срыв в техподдержке', ex:0.75, cfg:0.30, speed:1.05, text:`— Спасибо, что позвонили в техподдержку. Вы пробовали выключить и включить устройство?
+— Я пробовал всё. Даже разговаривал с роутером уважительно.
+— Отлично, это уже продвинутый уровень диагностики. Теперь спокойно нажмите кнопку питания и не спорьте с принтером.`},
+    '⚡ Turbo: The Overly Dramatic Chef': {title:'⚡ Турбо: Слишком драматичный шеф', ex:0.80, cfg:0.30, speed:1.05, text:`Дамы и господа, перед нами не просто суп. Это симфония моркови, лука и надежды. Одна лишняя щепотка соли — и судьба ужина повиснет на волоске.`},
+    '⚡ Turbo: Conspiracy Podcast Host': {title:'⚡ Турбо: Ведущий конспирологического подкаста', ex:0.70, cfg:0.30, speed:1.00, text:`Друзья, задайте себе простой вопрос: почему чайник выключается именно тогда, когда вода закипела? Совпадение? Возможно. Но документы на кухонном столе говорят об обратном.`},
+    '⚡ Turbo: First-Time Skydiver': {title:'⚡ Турбо: Первый прыжок с парашютом', ex:0.85, cfg:0.28, speed:1.08, text:`Так, я абсолютно спокоен. Просто земля почему-то стала очень далеко. Инструктор улыбается, значит всё хорошо. Если я кричу, это не страх, это проверка акустики неба.`},
+    "⚡ Turbo: The Overworked Parent's Bedtime Story": {title:'⚡ Турбо: Уставший родитель читает сказку', ex:0.55, cfg:0.35, speed:0.95, text:`Жил-был маленький дракон, который никак не хотел спать. Он просил воды, потом сказку, потом ещё одну сказку. А мудрый родитель-дракон тихо сказал: «Сокровища подождут. Сейчас все закрывают глазки».`},
+    '⚡ Turbo: Escape Room Panic': {title:'⚡ Турбо: Паника в квест-комнате', ex:0.80, cfg:0.28, speed:1.08, text:`У нас осталось восемь минут. На стене три ключа, под ковром записка, а кто-то уже пытается договориться с дверью. Спокойно. Дышим. Сначала читаем подсказку, потом паникуем по расписанию.`},
+    '⚡ Turbo: Nature Documentary Narrator Gone Wrong': {title:'⚡ Турбо: Диктор природы пошёл не по плану', ex:0.65, cfg:0.32, speed:0.98, text:`Перед нами редчайшее создание — офисный сотрудник в понедельник утром. Он осторожно приближается к кофемашине, избегая зрительного контакта с календарём.`},
+    '⚡ Turbo: The Emotional Movie Reviewer': {title:'⚡ Турбо: Эмоциональный кинокритик', ex:0.78, cfg:0.30, speed:1.00, text:`Этот фильм посмотрел прямо в мою душу, поправил там шторы и оставил записку. Сюжет местами спорный, но сцена с дождём — это чистая поэзия, снятая объективом сердца.`},
+    '⚡ Turbo: Nervous Wedding Toast': {title:'⚡ Турбо: Нервный свадебный тост', ex:0.72, cfg:0.32, speed:1.02, text:`Дорогие друзья, я подготовил короткий тост на три страницы, но вижу ваши лица и буду импровизировать. Пусть в вашем доме всегда будет любовь, смех и зарядка для телефона в нужный момент.`},
+    'Long Story Excerpt (Chunking Test)': {title:'Длинный рассказ для проверки фрагментов', ex:0.50, cfg:0.35, speed:0.95, text:`Глава первая. Дорога через сосновый лес казалась бесконечной. Снег мягко ложился на ветви, луна отражалась в колее, а старый почтовый фургон медленно поднимался к перевалу. Внутри сидела девочка с медным компасом в руках. Стрелка компаса указывала не на север, а туда, где её ждали ответы.`},
+    'Noir Detective Monologue': {title:'Нуарный монолог детектива', ex:0.60, cfg:0.35, speed:0.92, text:`Дождь стучал по стеклу так, будто город пытался выбить признание. На моём столе лежала фотография, остывший кофе и дело, в котором слишком много людей говорили правду наполовину.`},
+    "Children's Story Narrator": {title:'Рассказчик детской сказки', ex:0.55, cfg:0.35, speed:0.95, text:`На краю солнечной поляны жил маленький ёжик Тимоша. Он очень боялся темноты, пока однажды не понял: звёзды — это маленькие фонарики, которые ночь зажигает специально для смелых путешественников.`},
+    'Motivational Speech': {title:'Мотивационная речь', ex:0.70, cfg:0.30, speed:1.00, text:`Сегодня не нужно быть идеальным. Достаточно сделать один честный шаг вперёд. Ошибки — это не стена, а лестница. Поднимайтесь спокойно, уверенно и не забывайте дышать.`},
+    'Scientific Abstract Reading': {title:'Чтение научной аннотации', ex:0.45, cfg:0.40, speed:0.92, text:`В данной работе рассматривается влияние акустических признаков на устойчивость синтеза русской речи. Экспериментальные результаты показывают, что чистый reference audio и умеренные значения cfg_weight повышают разборчивость и стабильность генерации.`},
+    'Fairy Tale Villain Monologue': {title:'Монолог сказочного злодея', ex:0.82, cfg:0.28, speed:0.96, text:`Вы думали, что замок заснул случайно? О нет. Это была моя колыбельная для целого королевства. Теперь даже часы шепчут моё имя, а луна прячется за башней.`}
   };
+  const ruTemplates = Object.fromEntries(Object.entries(ruPresetCatalog).map(([key, value]) => [value.title, value]));
   function translateString(value) {
     if (!value) return value; const trimmed = value.trim();
     if (exact.has(trimmed)) return value.replace(trimmed, exact.get(trimmed));
@@ -309,6 +318,49 @@ script = """
     textarea.dispatchEvent(new Event('input', {bubbles: true}));
     textarea.dispatchEvent(new Event('change', {bubbles: true}));
   }
+  function setControlByKeywords(keywords, value) {
+    const inputs = document.querySelectorAll('input[type="range"], input[type="number"]');
+    for (const input of inputs) {
+      const context = `${input.name || ''} ${input.id || ''} ${input.getAttribute('aria-label') || ''} ${input.title || ''} ${input.closest('label, div, section')?.textContent || ''}`.toLowerCase();
+      if (keywords.some(k => context.includes(k))) {
+        input.value = String(value);
+        input.dispatchEvent(new Event('input', {bubbles: true}));
+        input.dispatchEvent(new Event('change', {bubbles: true}));
+        return true;
+      }
+    }
+    return false;
+  }
+  function applyRussianPreset(preset) {
+    const textarea = document.querySelector('textarea');
+    if (!textarea || !preset) return;
+    setTextareaValue(textarea, preset.text);
+    setControlByKeywords(['exaggeration', 'выраз'], preset.ex);
+    setControlByKeywords(['cfg', 'cfg_weight'], preset.cfg);
+    setControlByKeywords(['speed', 'скор'], preset.speed);
+  }
+  function presetForOption(option) {
+    if (!option) return null;
+    const original = option.dataset.originalPreset || option.textContent.trim();
+    return ruPresetCatalog[original] || Object.values(ruPresetCatalog).find(p => p.title === option.textContent.trim()) || null;
+  }
+  function localizePresetSelects(root = document) {
+    for (const select of (root.querySelectorAll ? root.querySelectorAll('select') : [])) {
+      let hasPreset = false;
+      for (const option of select.options || []) {
+        const text = option.dataset.originalPreset || option.textContent.trim();
+        if (ruPresetCatalog[text]) {
+          option.dataset.originalPreset = text;
+          option.textContent = ruPresetCatalog[text].title;
+          hasPreset = true;
+        }
+      }
+      if (hasPreset && !select.dataset.ruPresetBound) {
+        select.dataset.ruPresetBound = '1';
+        select.addEventListener('change', () => applyRussianPreset(presetForOption(select.selectedOptions[0])));
+      }
+    }
+  }
   function ensureRussianTemplatesPanel(root = document) {
     const textarea = root.querySelector ? root.querySelector('textarea') : document.querySelector('textarea');
     if (!textarea || document.getElementById('chatterbox-ru-templates')) return;
@@ -319,7 +371,7 @@ script = """
     const select = document.createElement('select'); select.style.cssText = 'padding:6px 10px;border:1px solid #94a3b8;border-radius:6px';
     for (const name of Object.keys(ruTemplates)) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; select.appendChild(opt); }
     const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Вставить шаблон'; btn.style.cssText = 'padding:7px 12px;border-radius:6px;border:0;background:#4f46e5;color:white;cursor:pointer';
-    btn.addEventListener('click', () => setTextareaValue(textarea, ruTemplates[select.value] || ruText));
+    btn.addEventListener('click', () => applyRussianPreset(ruTemplates[select.value] || {text: ruText, ex: 0.5, cfg: 0.5, speed: 1.0}));
     wrap.append(label, select, btn);
     textarea.insertAdjacentElement('beforebegin', wrap);
   }
@@ -341,6 +393,7 @@ script = """
         el.placeholder = ruText; el.dataset.ruHintApplied = '1';
       }
     }
+    localizePresetSelects(root);
     ensureRussianTemplatesPanel(root);
   }
   const run = () => localize(document); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
