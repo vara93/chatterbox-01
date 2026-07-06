@@ -135,6 +135,13 @@ setup_python_and_deps() {
   fi
   run_as_user "$VENV_DIR/bin/python" -m pip install -r "$REPO_DIR/requirements.txt"
   run_as_user "$VENV_DIR/bin/python" -m pip install --no-deps 'git+https://github.com/devnen/chatterbox-v2.git@master' s3tokenizer==0.3.0 onnx==1.16.0
+  run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade 'protobuf>=3.20.2,<5'
+  run_as_user "$VENV_DIR/bin/python" - <<'PY_CHECK'
+import google.protobuf.internal.builder  # noqa: F401
+import onnx  # noqa: F401
+import s3tokenizer  # noqa: F401
+import chatterbox  # noqa: F401
+PY_CHECK
 }
 
 patch_config() {
@@ -218,6 +225,29 @@ start_service() {
   systemctl restart chatterbox.service
 }
 
+
+wait_port() {
+  local timeout="$1" start now
+  start=$(date +%s)
+  while true; do
+    if command -v ss >/dev/null 2>&1; then
+      if ss -ltn "sport = :${PORT}" | awk 'NR > 1 {found=1} END {exit found ? 0 : 1}'; then
+        return 0
+      fi
+    elif curl -fsS --connect-timeout 2 "http://127.0.0.1:${PORT}/docs" >/dev/null 2>&1; then
+      return 0
+    fi
+    now=$(date +%s)
+    if (( now - start >= timeout )); then
+      echo "Port ${PORT} did not start listening within ${timeout}s" >&2
+      systemctl status chatterbox.service --no-pager >&2 || true
+      journalctl -u chatterbox.service -n 80 --no-pager >&2 || true
+      return 1
+    fi
+    sleep 3
+  done
+}
+
 wait_http() {
   local url="$1" timeout="$2" start now code
   start=$(date +%s)
@@ -236,13 +266,9 @@ health_check() {
   fi
   log "Running health checks"
   systemctl is-active --quiet chatterbox.service
-  if command -v ss >/dev/null 2>&1; then
-    ss -ltn "sport = :${PORT}" | grep -q ":${PORT}"
-  else
-    curl -fsS "http://127.0.0.1:${PORT}/docs" >/dev/null
-  fi
   local timeout=180
   (( PRELOAD_MODELS )) && timeout=1800
+  wait_port "$timeout"
   wait_http "http://127.0.0.1:${PORT}/api/ui/initial-data" "$timeout"
   wait_http "http://127.0.0.1:${PORT}/docs" 60
 }
