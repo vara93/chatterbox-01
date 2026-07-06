@@ -282,10 +282,46 @@ script = """
 
 Скажи это мягко, спокойно, тепло,
 Как будто в душе зазвучало светло.`;
+  const ruTemplates = {
+    'Стих': ruText,
+    'Сказка': `В маленькой деревне у самой кромки леса жил старый мастер. Каждое утро он открывал окно, слушал птиц и говорил: «Сегодня обязательно случится что-то доброе». И однажды на пороге его дома появился светящийся ключ.`,
+    'Диктор': `Добрый день. Вы слушаете тест русской озвучки Chatterbox TTS. Голос должен звучать ровно, понятно и естественно, без лишней спешки и резких перепадов громкости.`,
+    'Диалог': `— Ты уже слышал этот голос?
+— Да, звучит похоже и довольно естественно.
+— Тогда попробуем ещё одну фразу, чуть медленнее и выразительнее.
+— Отлично, так будет понятнее для слушателя.`,
+    'Аудиокнига': `Город постепенно засыпал. В окнах гасли огни, по мокрой мостовой тихо шуршали редкие машины, а где-то далеко часы на башне отбивали полночь. Именно в этот момент началась история, которую никто не смог забыть.`,
+    'Инструкция': `Для лучшего результата используйте короткий reference audio: пять–пятнадцать секунд чистого русского голоса, без музыки, шума и реверберации. Если речь звучит нестабильно, уменьшите cfg_weight примерно до нуля целых трёх десятых.`
+  };
   function translateString(value) {
     if (!value) return value; const trimmed = value.trim();
     if (exact.has(trimmed)) return value.replace(trimmed, exact.get(trimmed));
     let out = value; for (const [from, to] of contains) out = out.split(from).join(to); return out;
+  }
+  function looksEnglishPreset(text) {
+    if (!text) return false;
+    const latin = (text.match(/[A-Za-z]/g) || []).length;
+    const cyr = (text.match(/[А-Яа-яЁё]/g) || []).length;
+    return latin > 80 && cyr < 10;
+  }
+  function setTextareaValue(textarea, value) {
+    textarea.value = value;
+    textarea.dispatchEvent(new Event('input', {bubbles: true}));
+    textarea.dispatchEvent(new Event('change', {bubbles: true}));
+  }
+  function ensureRussianTemplatesPanel(root = document) {
+    const textarea = root.querySelector ? root.querySelector('textarea') : document.querySelector('textarea');
+    if (!textarea || document.getElementById('chatterbox-ru-templates')) return;
+    const wrap = document.createElement('div');
+    wrap.id = 'chatterbox-ru-templates';
+    wrap.style.cssText = 'margin:10px 0;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
+    const label = document.createElement('strong'); label.textContent = 'Русские шаблоны:';
+    const select = document.createElement('select'); select.style.cssText = 'padding:6px 10px;border:1px solid #94a3b8;border-radius:6px';
+    for (const name of Object.keys(ruTemplates)) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; select.appendChild(opt); }
+    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Вставить шаблон'; btn.style.cssText = 'padding:7px 12px;border-radius:6px;border:0;background:#4f46e5;color:white;cursor:pointer';
+    btn.addEventListener('click', () => setTextareaValue(textarea, ruTemplates[select.value] || ruText));
+    wrap.append(label, select, btn);
+    textarea.insertAdjacentElement('beforebegin', wrap);
   }
   function localize(root = document) {
     document.title = 'Chatterbox TTS Server — русская озвучка';
@@ -300,11 +336,12 @@ script = """
       for (const attr of ['title','aria-label','placeholder','value']) if (el.hasAttribute && el.hasAttribute(attr)) {
         const next = translateString(el.getAttribute(attr)); if (next !== el.getAttribute(attr)) el.setAttribute(attr, next);
       }
-      if (el.tagName === 'TEXTAREA' && !el.dataset.ruHintApplied) {
-        if (!el.value || /This room smells|Hello|Enter the text/i.test(el.value)) el.value = ruText;
-        el.placeholder = ruText; el.dataset.ruHintApplied = '1'; el.dispatchEvent(new Event('input', {bubbles: true}));
+      if (el.tagName === 'TEXTAREA') {
+        if (!el.dataset.ruHintApplied || looksEnglishPreset(el.value)) setTextareaValue(el, ruText);
+        el.placeholder = ruText; el.dataset.ruHintApplied = '1';
       }
     }
+    ensureRussianTemplatesPanel(root);
   }
   const run = () => localize(document); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
   new MutationObserver(muts => { for (const mut of muts) for (const node of mut.addedNodes) if (node.nodeType === 1) localize(node); }).observe(document.documentElement, {childList: true, subtree: true});
