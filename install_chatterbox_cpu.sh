@@ -344,7 +344,11 @@ script = """
     const original = option.dataset.originalPreset || option.textContent.trim();
     return ruPresetCatalog[original] || Object.values(ruPresetCatalog).find(p => p.title === option.textContent.trim()) || null;
   }
-  function localizePresetSelects(root = document) {
+  function localizePresetControls(root = document) {
+    const applyLater = preset => {
+      window.setTimeout(() => applyRussianPreset(preset), 0);
+      window.setTimeout(() => applyRussianPreset(preset), 150);
+    };
     for (const select of (root.querySelectorAll ? root.querySelectorAll('select') : [])) {
       let hasPreset = false;
       for (const option of select.options || []) {
@@ -357,23 +361,20 @@ script = """
       }
       if (hasPreset && !select.dataset.ruPresetBound) {
         select.dataset.ruPresetBound = '1';
-        select.addEventListener('change', () => applyRussianPreset(presetForOption(select.selectedOptions[0])));
+        select.addEventListener('change', () => applyLater(presetForOption(select.selectedOptions[0])));
       }
     }
-  }
-  function ensureRussianTemplatesPanel(root = document) {
-    const textarea = root.querySelector ? root.querySelector('textarea') : document.querySelector('textarea');
-    if (!textarea || document.getElementById('chatterbox-ru-templates')) return;
-    const wrap = document.createElement('div');
-    wrap.id = 'chatterbox-ru-templates';
-    wrap.style.cssText = 'margin:10px 0;padding:10px;border:1px solid #cbd5e1;border-radius:8px;background:#f8fafc;color:#0f172a;display:flex;gap:8px;align-items:center;flex-wrap:wrap';
-    const label = document.createElement('strong'); label.textContent = 'Русские шаблоны:';
-    const select = document.createElement('select'); select.style.cssText = 'padding:6px 10px;border:1px solid #94a3b8;border-radius:6px';
-    for (const name of Object.keys(ruTemplates)) { const opt = document.createElement('option'); opt.value = name; opt.textContent = name; select.appendChild(opt); }
-    const btn = document.createElement('button'); btn.type = 'button'; btn.textContent = 'Вставить шаблон'; btn.style.cssText = 'padding:7px 12px;border-radius:6px;border:0;background:#4f46e5;color:white;cursor:pointer';
-    btn.addEventListener('click', () => applyRussianPreset(ruTemplates[select.value] || {text: ruText, ex: 0.5, cfg: 0.5, speed: 1.0}));
-    wrap.append(label, select, btn);
-    textarea.insertAdjacentElement('beforebegin', wrap);
+    for (const el of (root.querySelectorAll ? root.querySelectorAll('button, [role="button"], a, span, div') : [])) {
+      const text = el.dataset.originalPreset || el.textContent.trim();
+      const preset = ruPresetCatalog[text] || Object.values(ruPresetCatalog).find(p => p.title === text);
+      if (!preset) continue;
+      el.dataset.originalPreset = el.dataset.originalPreset || text;
+      if (el.textContent.trim() !== preset.title) el.textContent = preset.title;
+      if (!el.dataset.ruPresetBound) {
+        el.dataset.ruPresetBound = '1';
+        el.addEventListener('click', () => applyLater(preset));
+      }
+    }
   }
   function localize(root = document) {
     document.title = 'Chatterbox TTS Server — русская озвучка';
@@ -393,8 +394,7 @@ script = """
         el.placeholder = ruText; el.dataset.ruHintApplied = '1';
       }
     }
-    localizePresetSelects(root);
-    ensureRussianTemplatesPanel(root);
+    localizePresetControls(root);
   }
   const run = () => localize(document); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
   new MutationObserver(muts => { for (const mut of muts) for (const node of mut.addedNodes) if (node.nodeType === 1) localize(node); }).observe(document.documentElement, {childList: true, subtree: true});
