@@ -105,7 +105,7 @@ sync_repo() {
     rm -rf "$REPO_DIR" "$VENV_DIR"
   fi
   if [[ -d "$REPO_DIR/.git" ]]; then
-    git -C "$REPO_DIR" pull --ff-only
+    run_as_user git -C "$REPO_DIR" pull --ff-only
   elif [[ -e "$REPO_DIR" ]]; then
     echo "$REPO_DIR exists but is not a git repository. Use --reinstall or remove it." >&2
     exit 1
