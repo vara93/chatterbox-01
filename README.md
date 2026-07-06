@@ -302,6 +302,16 @@ sudo rm -f /usr/local/bin/uv /usr/local/bin/uvx
 
 Chatterbox-TTS-Server указывает Python 3.10 как обязательный из-за совместимости бинарных wheels для PyTorch/ONNX и связанных библиотек. Скрипт ставит изолированный Python 3.10 через `uv` и не меняет системный Python Ubuntu.
 
+
+### `RuntimeError: Attempting to deserialize object on a CUDA device`
+
+На CPU-only машине multilingual checkpoint может содержать CUDA storage tags. Скрипт ставит `sitecustomize.py` в venv, который на CPU автоматически добавляет `map_location=torch.device("cpu")` для `torch.load`, и systemd дополнительно получает `CUDA_VISIBLE_DEVICES=-1`. После обновления выполните:
+
+```bash
+sudo bash install_chatterbox_cpu.sh --update
+sudo systemctl restart chatterbox
+```
+
 ### `ImportError: cannot import name 'builder' from 'google.protobuf.internal'`
 
 Это означает, что в venv попала слишком новая major-версия `protobuf`, несовместимая с `onnx==1.16.0`. Актуальный скрипт фиксирует это автоматически и устанавливает `protobuf==3.20.3`. Для уже установленного окружения можно выполнить:

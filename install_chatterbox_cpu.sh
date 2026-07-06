@@ -155,6 +155,25 @@ import chatterbox  # noqa: F401
 PY_CHECK
 }
 
+install_cpu_torch_load_patch() {
+  log "Installing CPU torch.load compatibility patch"
+  run_as_user "$VENV_DIR/bin/python" - <<'PY_CPU_PATCH'
+from pathlib import Path
+import site
+
+content = '"""CPU-only compatibility patch for Chatterbox checkpoints saved with CUDA storage tags."""\nimport functools\n\ntry:\n    import torch\nexcept Exception:  # keep interpreter startup safe\n    torch = None\n\nif torch is not None and not torch.cuda.is_available() and not getattr(torch.load, "_chatterbox_cpu_patch", False):\n    _original_torch_load = torch.load\n\n    @functools.wraps(_original_torch_load)\n    def _torch_load_cpu_default(*args, **kwargs):\n        kwargs.setdefault("map_location", torch.device("cpu"))\n        return _original_torch_load(*args, **kwargs)\n\n    _torch_load_cpu_default._chatterbox_cpu_patch = True\n    torch.load = _torch_load_cpu_default\n'
+
+purelib = Path(site.getsitepackages()[0])
+path = purelib / 'sitecustomize.py'
+path.write_text(content, encoding='utf-8')
+PY_CPU_PATCH
+  run_as_user "$VENV_DIR/bin/python" - <<'PY_CPU_CHECK'
+import torch
+assert not torch.cuda.is_available(), "CUDA unexpectedly visible on CPU installer"
+assert getattr(torch.load, "_chatterbox_cpu_patch", False), "CPU torch.load patch was not activated"
+PY_CPU_CHECK
+}
+
 patch_config() {
   log "Patching config.yaml"
   if [[ ! -f "$REPO_DIR/config.yaml" ]]; then
@@ -181,6 +200,7 @@ def section(name):
         value = {}
         data[name] = value
     return value
+data['device'] = 'cpu'
 section('server').update({'host': ${HOST@Q}, 'port': int(${PORT@Q}), 'use_auth': False, 'use_ngrok': False, 'log_file_path': ${LOG_DIR@Q} + '/tts_server.log'})
 section('model').update({'repo_id': 'chatterbox-multilingual'})
 section('tts_engine').update({'device': 'cpu', 'predefined_voices_path': ${VOICES_DIR@Q}, 'reference_audio_path': ${REFERENCE_DIR@Q}})
@@ -298,6 +318,7 @@ RestartSec=5
 Environment=HF_HOME=${HF_CACHE}
 Environment=TRANSFORMERS_CACHE=${HF_CACHE}
 Environment=HF_HUB_CACHE=${HF_CACHE}
+Environment=CUDA_VISIBLE_DEVICES=-1
 Environment=PYTHONUNBUFFERED=1
 Environment=OMP_NUM_THREADS=${CPU_THREADS}
 Environment=MKL_NUM_THREADS=${CPU_THREADS}
@@ -376,6 +397,7 @@ main() {
   ensure_user_and_dirs
   sync_repo
   setup_python_and_deps
+  install_cpu_torch_load_patch
   patch_config
   apply_russian_ui_patch
   install_service
