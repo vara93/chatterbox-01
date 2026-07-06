@@ -99,12 +99,23 @@ ensure_user_and_dirs() {
   chown -R "$RUN_USER:$RUN_USER" "$INSTALL_DIR" "$LOG_DIR"
 }
 
+restore_russian_ui_patch_before_pull() {
+  [[ -d "$REPO_DIR/.git" ]] || return 0
+  while IFS= read -r rel_path; do
+    [[ -n "$rel_path" && -f "$REPO_DIR/$rel_path" ]] || continue
+    if grep -q "CHATTERBOX_RU_UI_PATCH" "$REPO_DIR/$rel_path"; then
+      run_as_user git -C "$REPO_DIR" checkout -- "$rel_path"
+    fi
+  done < <(run_as_user git -C "$REPO_DIR" diff --name-only -- '*.html' || true)
+}
+
 sync_repo() {
   log "Installing/updating Chatterbox-TTS-Server"
   if (( REINSTALL )); then
     rm -rf "$REPO_DIR" "$VENV_DIR"
   fi
   if [[ -d "$REPO_DIR/.git" ]]; then
+    restore_russian_ui_patch_before_pull
     run_as_user git -C "$REPO_DIR" pull --ff-only
   elif [[ -e "$REPO_DIR" ]]; then
     echo "$REPO_DIR exists but is not a git repository. Use --reinstall or remove it." >&2
@@ -135,7 +146,7 @@ setup_python_and_deps() {
   fi
   run_as_user "$VENV_DIR/bin/python" -m pip install -r "$REPO_DIR/requirements.txt"
   run_as_user "$VENV_DIR/bin/python" -m pip install --no-deps 'git+https://github.com/devnen/chatterbox-v2.git@master' s3tokenizer==0.3.0 onnx==1.16.0
-  run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade 'protobuf>=3.20.2,<5'
+  run_as_user "$VENV_DIR/bin/python" -m pip install --upgrade 'protobuf==3.20.3'
   run_as_user "$VENV_DIR/bin/python" - <<'PY_CHECK'
 import google.protobuf.internal.builder  # noqa: F401
 import onnx  # noqa: F401
@@ -180,6 +191,88 @@ section('ui').update({'show_language_select': True})
 p.write_text(yaml.safe_dump(data, allow_unicode=True, sort_keys=False), encoding='utf-8')
 PY
   chown "$RUN_USER:$RUN_USER" "$REPO_DIR/config.yaml"
+}
+
+apply_russian_ui_patch() {
+  log "Applying Russian Web UI translation patch"
+  (cd "$REPO_DIR" && run_as_user "$VENV_DIR/bin/python" - <<'PY_RU_UI'
+from pathlib import Path
+repo = Path.cwd()
+marker = "CHATTERBOX_RU_UI_PATCH"
+script = """
+<script id="chatterbox-ru-ui-patch">
+/* CHATTERBOX_RU_UI_PATCH: runtime Russian localization for Chatterbox Web UI */
+(() => {
+  const exact = new Map(Object.entries({
+    'Original': 'Оригинальная', 'API Docs': 'API-документация',
+    'Configuration saved. Please restart the server manually for changes to take effect.': 'Конфигурация сохранена. Перезапустите сервер, чтобы изменения вступили в силу.',
+    'Generate Speech': 'Сгенерировать речь', 'Active Model:': 'Активная модель:',
+    'Text to synthesize': 'Текст для озвучки',
+    'Enter the text you want to convert to speech. You can use emotion tags like [laugh], [sigh], etc.': 'Введите русский текст для озвучки. Для клонирования голоса используйте чистый reference audio.',
+    'Split text into chunks': 'Разбивать текст на фрагменты', 'Chunk Size:': 'Размер фрагмента:',
+    'Voice Mode:': 'Режим голоса:', 'Predefined Voices': 'Готовые голоса',
+    'Voice Cloning (Reference)': 'Клонирование голоса (reference audio)',
+    'Select Predefined Voice:': 'Выберите готовый голос:', '-- Select Voice --': '-- Выберите голос --',
+    'Import': 'Импорт', 'Refresh': 'Обновить', 'Load Example Preset:': 'Загрузить пример:',
+    'Generated Audio': 'Готовое аудио', 'Download': 'Скачать', 'Seed': 'Seed', 'Random': 'Случайно',
+    'Temperature': 'Температура', 'Exaggeration': 'Выразительность', 'CFG Weight': 'CFG weight',
+    'Speed Factor': 'Скорость', 'Language': 'Язык', 'Output Format': 'Формат файла',
+    'Saving...': 'Сохранение...', 'Saving configuration...': 'Сохранение конфигурации...',
+    'Save': 'Сохранить', 'Cancel': 'Отмена', 'Close': 'Закрыть'
+  }));
+  const contains = [
+    ['Characters', 'символов'],
+    ['Splitting is essential for longer texts like articles or audiobook chapters. Recommended chunk size ~150-400 characters.', 'Для длинных текстов включите разбиение на фрагменты. Рекомендуемый размер ~150–400 символов.'],
+    ['This may take some time', 'Это может занять некоторое время'], ['Generating audio', 'Генерация аудио'],
+    ['Chatterbox Multilingual (23 Languages)', 'Chatterbox Multilingual (23 языка)'],
+    ['Chatterbox Original (English)', 'Chatterbox Original (английский)'],
+    ['Chatterbox Turbo (Fast, English)', 'Chatterbox Turbo (быстрый, английский)']
+  ];
+  const ruText = 'Введите русский текст здесь. Для клонирования голоса выберите «Клонирование голоса (reference audio)» и загрузите WAV/MP3 5–15 секунд чистого русского голоса.';
+  function translateString(value) {
+    if (!value) return value; const trimmed = value.trim();
+    if (exact.has(trimmed)) return value.replace(trimmed, exact.get(trimmed));
+    let out = value; for (const [from, to] of contains) out = out.split(from).join(to); return out;
+  }
+  function localize(root = document) {
+    document.title = 'Chatterbox TTS Server — русская озвучка';
+    const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT, {acceptNode(node) {
+      const parent = node.parentElement;
+      if (!parent || ['SCRIPT','STYLE','TEXTAREA'].includes(parent.tagName)) return NodeFilter.FILTER_REJECT;
+      return node.nodeValue.trim() ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT;
+    }});
+    const nodes = []; while (walker.nextNode()) nodes.push(walker.currentNode);
+    for (const node of nodes) { const next = translateString(node.nodeValue); if (next !== node.nodeValue) node.nodeValue = next; }
+    for (const el of root.querySelectorAll ? root.querySelectorAll('input, textarea, button, option, [title], [aria-label], [placeholder]') : []) {
+      for (const attr of ['title','aria-label','placeholder','value']) if (el.hasAttribute && el.hasAttribute(attr)) {
+        const next = translateString(el.getAttribute(attr)); if (next !== el.getAttribute(attr)) el.setAttribute(attr, next);
+      }
+      if (el.tagName === 'TEXTAREA' && !el.dataset.ruHintApplied) {
+        if (!el.value || /This room smells|Hello|Enter the text/i.test(el.value)) el.value = ruText;
+        el.placeholder = ruText; el.dataset.ruHintApplied = '1'; el.dispatchEvent(new Event('input', {bubbles: true}));
+      }
+    }
+  }
+  const run = () => localize(document); if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run); else run();
+  new MutationObserver(muts => { for (const mut of muts) for (const node of mut.addedNodes) if (node.nodeType === 1) localize(node); }).observe(document.documentElement, {childList: true, subtree: true});
+})();
+</script>
+"""
+for html in repo.rglob('*.html'):
+    if any(part in {'.git', 'venv', '__pycache__'} for part in html.parts):
+        continue
+    text = html.read_text(encoding='utf-8')
+    if marker in text:
+        continue
+    lower = text.lower()
+    if '</body>' in lower:
+        idx = lower.rfind('</body>')
+        text = text[:idx] + script + '\n' + text[idx:]
+    else:
+        text += '\n' + script + '\n'
+    html.write_text(text, encoding='utf-8')
+PY_RU_UI
+)
 }
 
 install_service() {
@@ -284,6 +377,7 @@ main() {
   sync_repo
   setup_python_and_deps
   patch_config
+  apply_russian_ui_patch
   install_service
   start_service
   health_check
